@@ -67,7 +67,7 @@ class DiarizationPipeline:
             }
         )
 
-        return new_segments, inputs 
+        return new_segments 
 
     # Adapted from transformers.pipelines.automatic_speech_recognition.AutomaticSpeechRecognitionPipeline.preprocess
     # (see https://github.com/huggingface/transformers/blob/238449414f88d94ded35e80459bb6412d8ab42cf/src/transformers/pipelines/automatic_speech_recognition.py#L417)

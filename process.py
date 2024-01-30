@@ -4,7 +4,7 @@ from io import StringIO
 from threading import Lock
 import logging
 import torch
-from transformers import pipeline
+from transformers import pipeline, AutoProcessor, AutoModelForSpeechSeq2Seq
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
@@ -17,11 +17,18 @@ else:
     torch_dtype = torch.float32
 
 MODEL_PATH_W = "/Users/mac/Downloads/whisper-large"
+model = AutoModelForSpeechSeq2Seq.from_pretrained(
+    MODEL_PATH_W, torch_dtype=torch_dtype, low_cpu_mem_usage=True)
+processor = AutoProcessor.from_pretrained(MODEL_PATH_W)
+
 whisper = pipeline(
     "automatic-speech-recognition",
-    model=MODEL_PATH_W,
+    model=model,
+    tokenizer=processor.tokenizer,
+    feature_extractor=processor.feature_extractor,
     device=device,
-    torch_dtype=torch_dtype
+    torch_dtype=torch_dtype,
+    batch_size=24
 )
 model_lock = Lock()
 
@@ -36,23 +43,9 @@ def transcriber(
     with model_lock:
         kwargs = {"language": f"{lang}", "task": f"{task}"}
         logger.info(f"generate_kwargs :{kwargs}")
-        
-        logger.info(f"audio :{audio}")
-        # whisper.tokenizer.get_decoder_prompt_ids(
-        #     language=lang,
-        #     task=task,
-        # )
+
         result = whisper(audio,
                          generate_kwargs=kwargs,
-                         #  chunk_length_s=30,
-                         #  stride_length_s=5,
-                         #  batch_size=16
+                         return_timestamps=True,
                          )
-    output_file = StringIO()
-    if "json" in output:
-        json.dump(result["text"], output_file)
-    else:
-        print(result["text"], file=output_file, flush=True)
-    output_file.seek(0)
-    return output_file
-
+    return result

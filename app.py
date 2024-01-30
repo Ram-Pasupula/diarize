@@ -3,9 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Union
 from process import transcriber
 from fastapi.responses import StreamingResponse
-import glob
 import time
-import os
 import logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -15,16 +13,13 @@ LANGUAGE_CODES = sorted(("en", "es"))
 
 app = FastAPI(
     title="Whisper API",
-    debug=True,
-    #description="Automatic Speech Recognition API",
-    #version="1.0.0",
-   # openapi_url="/api/openapi.json",
-    docs_url="/",
+    debug=False,
+
+    docs_url="/app/v1",
     redoc_url="/api/redoc",
-    # Set generate_schema to False to disable automatic schema generation
     generate_schema=False,
 )
-
+  
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,6 +27,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+async def transcribe_and_stream(file, task, lang, output):
+    chunks = transcriber(file, task, lang, output)
+    return chunks
+
 
 @app.post("/transcode")
 async def asr(file: UploadFile = File(...),
@@ -45,35 +46,17 @@ async def asr(file: UploadFile = File(...),
 
     try:
         start_time = time.time()
-        file_location = f"/tmp/{file.filename}"
-        with open(file_location, "wb+") as file_object:
-            file_object.write(file.file.read())
-        file_path = os.path.dirname(file_location)
+        audio_content = await file.read()
         logger.info(f"task : {task}")
         logger.info(f"lang : {lang}")
-        logger.info(f"{file_path}/{file.filename}")
-        result = transcriber(
-            f"{file_path}/{file.filename}", task, lang, output)
+        response = await transcribe_and_stream(audio_content, task, lang, output)
         end_time = time.time()
         elapsed_time = end_time - start_time
         print(f"Execution time: {elapsed_time} seconds")
         logger.info(f"Execution time: {elapsed_time} seconds")
-        # logger.info(result)
-    except Exception:
-        raise Exception(status_code=500, detail='File not able to load')
-    else:
-        return StreamingResponse(
-            result,
-            media_type="text/plain",
-            headers={
-                'Content-Disposition': f'attachment; filename="{file.filename}.{output}"'
-            })
-    finally:
-        try:
-            files = glob.glob(f"/tmp/{file.filename}")
-            for f in files:
-                os.remove(f)
-        except Exception:
-            pass
-        else:
-            logger.info("Successfully deleted temp files")
+        return response
+    except Exception as e:
+        logger.error(f'Error during transcription:{e}')
+if __name__ == '__main__':
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
