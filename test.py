@@ -72,12 +72,9 @@ pipeline = DiarizationPipeline(
 segments = pipeline("/Users/mac/Downloads/chunks/output_001.wav")
 
 Transcribe = transcribe("/Users/mac/Downloads/chunks/output_001.wav")
-#print(segments)
 tra = json.loads(Transcribe)
 transcript = tra['chunks']
 print(transcript)
 res = process(transcript, segments)
 print(res)
 
-
-# print(inputs)
